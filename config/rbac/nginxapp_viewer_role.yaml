@@ -1,0 +1,20 @@
+# permissions for end users to view nginxapps.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: nginxapp-viewer-role
+rules:
+- apiGroups:
+  - appdemo.dailygn.com
+  resources:
+  - nginxapps
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - appdemo.dailygn.com
+  resources:
+  - nginxapps/status
+  verbs:
+  - get

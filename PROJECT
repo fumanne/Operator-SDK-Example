@@ -1,0 +1,19 @@
+domain: dailygn.com
+layout:
+- go.kubebuilder.io/v3
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}
+projectName: mydemooperator
+repo: github.com/fumanne/appdemo-operator
+resources:
+- api:
+    crdVersion: v1
+    namespaced: true
+  controller: true
+  domain: dailygn.com
+  group: appdemo
+  kind: NginxApp
+  path: github.com/fumanne/appdemo-operator/api/v1
+  version: v1
+version: "3"

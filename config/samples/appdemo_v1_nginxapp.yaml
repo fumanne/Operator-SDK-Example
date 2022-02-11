@@ -1,0 +1,15 @@
+apiVersion: appdemo.dailygn.com/v1
+kind: NginxApp
+metadata:
+  name: nginxapp-sample
+spec:
+  image: "nginx:latest"
+  num: 2
+  serviceports:
+    - name: http
+      port: 8081
+  env:
+    - name: "MYKEY"
+      value: "HAHA"
+  data:
+    cmdata: "nginxData"
