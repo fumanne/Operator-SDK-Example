@@ -18,16 +18,16 @@ package controllers
 
 import (
 	"context"
+	appdemov1 "github.com/fumanne/appdemo-operator/api/v1"
+	appsv1 "k8s.io/api/apps/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/runtime"
 	"reflect"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/log"
-
-	appdemov1 "github.com/fumanne/appdemo-operator/api/v1"
-	appsv1 "k8s.io/api/apps/v1"
-	corev1 "k8s.io/api/core/v1"
 )
 
 // NginxAppReconciler reconciles a NginxApp object
@@ -36,10 +36,13 @@ type NginxAppReconciler struct {
 	Scheme *runtime.Scheme
 }
 
+const NginxAppFinalizer = "appdemo.dailygn.com/finalizer"
+
 //+kubebuilder:rbac:groups=appdemo.dailygn.com,resources=nginxapps,verbs=get;list;watch;create;update;patch;delete
 //+kubebuilder:rbac:groups=appdemo.dailygn.com,resources=nginxapps/status,verbs=get;update;patch
 //+kubebuilder:rbac:groups=appdemo.dailygn.com,resources=nginxapps/finalizers,verbs=update
 //+kubebuilder:rbac:groups=*,resources=*,verbs=*
+//+kubebuilder:subresource:NginxAppStatus
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
@@ -66,9 +69,25 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 	}
 
 	appLog.Info("2222222222--Get instance Info", "NginxAPP info", instance)
-	if instance.DeletionTimestamp != nil {
-		return ctrl.Result{Requeue: true}, nil
-	}
+
+	//
+	//isNginxAppMarkedToBeDeleted := instance.GetDeletionTimestamp() != nil
+	//if isNginxAppMarkedToBeDeleted {
+	//	if controllerutil.ContainsFinalizer(instance, NginxAppFinalizer) {
+	//		controllerutil.RemoveFinalizer(instance, NginxAppFinalizer)
+	//		if err := r.Client.Update(ctx, instance); err != nil {
+	//			return ctrl.Result{}, err
+	//		}
+	//	}
+	//	return ctrl.Result{}, nil
+	//}
+	//
+	//if !controllerutil.ContainsFinalizer(instance, NginxAppFinalizer) {
+	//	controllerutil.AddFinalizer(instance, NginxAppFinalizer)
+	//	if err := r.Client.Update(ctx, instance); err != nil {
+	//		return ctrl.Result{}, err
+	//	}
+	//}
 
 	deploy := &appsv1.Deployment{}
 	if err := r.Client.Get(ctx, req.NamespacedName, deploy); err != nil && errors.IsNotFound(err) {
@@ -77,6 +96,7 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "333333333333--Create Deployment Error", "Deployment", deploy)
 			return ctrl.Result{}, err
 		}
+		controllerutil.SetControllerReference(instance, deploy, r.Scheme)
 	}
 	appLog.Info("AAAAAAAAAAAA--Show Deployment ", "Deployment", deploy)
 
@@ -87,6 +107,7 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "BBBBBBBBBBB--Create Service Error", "Service", svc)
 			return ctrl.Result{}, err
 		}
+		controllerutil.SetControllerReference(instance, svc, r.Scheme)
 	}
 
 	appLog.Info("CCCCCCCCCCCC--Show Service Info", "Service", svc)
@@ -98,6 +119,7 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "DDDDDDDDD--Create CM Error", "CM", cm)
 			return ctrl.Result{}, err
 		}
+		controllerutil.SetControllerReference(instance, cm, r.Scheme)
 	}
 	appLog.Info("EEEEEEEEEEE--Show CM Info", "CM", cm)
 
@@ -132,12 +154,49 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 		appLog.Info("Update CM Data", "CM Data", cm.Data)
 	}
 
+	if instance.ObjectMeta.DeletionTimestamp.IsZero() {
+		if !controllerutil.ContainsFinalizer(instance, NginxAppFinalizer) {
+			controllerutil.AddFinalizer(instance, NginxAppFinalizer)
+			if err := r.Client.Update(ctx, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	} else {
+		if controllerutil.ContainsFinalizer(instance, NginxAppFinalizer) {
+			if err := r.deleteExternalResource(ctx, deploy, svc, cm); err != nil {
+				appLog.Error(err, "Delete Resource Error")
+				return ctrl.Result{}, err
+			}
+			controllerutil.RemoveFinalizer(instance, NginxAppFinalizer)
+			if err := r.Client.Update(ctx, instance); err != nil {
+				return ctrl.Result{}, err
+			}
+		}
+	}
+
 	return ctrl.Result{Requeue: true}, nil
+}
+
+func (r *NginxAppReconciler) deleteExternalResource(ctx context.Context, d *appsv1.Deployment, s *corev1.Service, c *corev1.ConfigMap) error {
+	if err := r.Client.Delete(ctx, d); err != nil {
+		return err
+	}
+
+	if err := r.Client.Delete(ctx, s); err != nil {
+		return err
+	}
+
+	if err := r.Client.Delete(ctx, c); err != nil {
+		return err
+	}
+	return nil
 }
 
 // SetupWithManager sets up the controller with the Manager.
 func (r *NginxAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appdemov1.NginxApp{}).
+		Owns(&appsv1.Deployment{}).
+		Owns(&corev1.Service{}).Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }
