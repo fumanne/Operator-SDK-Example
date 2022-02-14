@@ -197,6 +197,7 @@ func (r *NginxAppReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
 		For(&appdemov1.NginxApp{}).
 		Owns(&appsv1.Deployment{}).
-		Owns(&corev1.Service{}).Owns(&corev1.ConfigMap{}).
+		Owns(&corev1.Service{}).
+		Owns(&corev1.ConfigMap{}).
 		Complete(r)
 }
