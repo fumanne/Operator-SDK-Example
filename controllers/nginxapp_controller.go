@@ -96,7 +96,9 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "333333333333--Create Deployment Error", "Deployment", deploy)
 			return ctrl.Result{}, err
 		}
-		controllerutil.SetControllerReference(instance, deploy, r.Scheme)
+		if err := controllerutil.SetControllerReference(instance, deploy, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	appLog.Info("AAAAAAAAAAAA--Show Deployment ", "Deployment", deploy)
 
@@ -107,7 +109,9 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "BBBBBBBBBBB--Create Service Error", "Service", svc)
 			return ctrl.Result{}, err
 		}
-		controllerutil.SetControllerReference(instance, svc, r.Scheme)
+		if err := controllerutil.SetControllerReference(instance, svc, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 
 	appLog.Info("CCCCCCCCCCCC--Show Service Info", "Service", svc)
@@ -119,7 +123,9 @@ func (r *NginxAppReconciler) Reconcile(ctx context.Context, req ctrl.Request) (c
 			appLog.Error(err, "DDDDDDDDD--Create CM Error", "CM", cm)
 			return ctrl.Result{}, err
 		}
-		controllerutil.SetControllerReference(instance, cm, r.Scheme)
+		if err := controllerutil.SetControllerReference(instance, cm, r.Scheme); err != nil {
+			return ctrl.Result{}, err
+		}
 	}
 	appLog.Info("EEEEEEEEEEE--Show CM Info", "CM", cm)
 
